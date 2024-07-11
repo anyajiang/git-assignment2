@@ -4,15 +4,13 @@ library(openai)
 
 Sys.setenv(OPENAI_API_KEY = 'XXXXXX')
 
-data("pbmc_small")
-
 # UI for application 
 ui <- fluidPage(
   titlePanel("GPTCelltype Annotation"), 
   sidebarLayout(
     sidebarPanel(
       selectInput("dataset", "Select Input Data Format", 
-                  choices = list("Input Gene list" = "1", "Differential Gene Table" = "2", "Seurat Object" = "3", "Other" = "4"), 
+                  choices = list("Input Gene list" = "1", "Differential Gene Table" = "2", "Seurat Object" = "3"), 
                   selected = "Input Gene list"),
       conditionalPanel(
         condition = "input.dataset == '1'",
@@ -37,20 +35,19 @@ ui <- fluidPage(
       titlePanel("Cell Type Annotation: "), 
       conditionalPanel(
         condition = "input.dataset == '1'", 
-        tableOutput("table")
+        tableOutput("table"), 
+        downloadButton("download_table", "Download")
       ),
       conditionalPanel(
         condition = "input.dataset == '2'", 
-        tableOutput("table3")
+        tableOutput("table2"), 
+        downloadButton("download_table2", "Download")
       ), 
       conditionalPanel(
         condition = "input.dataset == '3'", 
-        tableOutput("table2"), 
-        plotOutput("dimPlot")
-      ),
-      conditionalPanel(
-        condition = "input.dataset == '4'", 
-        textOutput("other")
+        tableOutput("table3"), 
+        plotOutput("dimPlot"), 
+        downloadButton("download_table3", "Download")
       )
     )
   )
@@ -75,6 +72,15 @@ server <- function(input, output, session) {
         res_table
       })
       
+      output$download_table <- downloadHandler(
+        filename = function() {
+          paste("gene_list_annotation.csv")
+        },
+        content = function(file) {
+          write.csv(data.frame(Group = names(res), Genes = sapply(gene_list, paste, collapse = " "), Cell_Type = res), file)
+        }
+      )
+      
     } else if (input$dataset == 2) {
       req(input$file)
       
@@ -84,10 +90,19 @@ server <- function(input, output, session) {
       res <- gptcelltype(all.markers, 
                          tissuename = 'human PBMC', 
                          model = input$model)
-      output$table3 <- renderTable({
-        res_table3 <- data.frame(Group = names(res), Cell_Type = res)
-        res_table3
+      output$table2 <- renderTable({
+        res_table2 <- data.frame(Group = names(res), Cell_Type = res)
+        res_table2
       })
+      
+      output$download_table2 <- downloadHandler(
+        filename = function() {
+          paste("markers_annotation.csv")
+        },
+        content = function(file) {
+          write.csv(data.frame(Group = names(res), Cell_Type = res), file)
+        }
+      )
       
     } else if (input$dataset == 3) {
       req(input$file2)
@@ -106,14 +121,19 @@ server <- function(input, output, session) {
         DimPlot(dataset, group.by = 'celltype')
       })
       
-      output$table2 <- renderTable({
-        res_table2 <- data.frame(Group = names(res), Cell_Type = res)
-        res_table2
+      output$table3 <- renderTable({
+        res_table3 <- data.frame(Group = names(res), Cell_Type = res)
+        res_table3
       })
-    } else {
-      output$other <- renderText({
-        "Sorry we are not supporting this option!!"
-      })
+      
+      output$download_table3 <- downloadHandler(
+        filename = function() {
+          paste("seurat_annotation.csv")
+        },
+        content = function(file) {
+          write.csv(data.frame(Group = names(res), Cell_Type = res), file)
+        }
+      )
     }
   })
   
