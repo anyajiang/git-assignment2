@@ -35,19 +35,15 @@ ui <- fluidPage(
       titlePanel("Cell Type Annotation: "), 
       conditionalPanel(
         condition = "input.dataset == '1'", 
-        tableOutput("table"), 
-        downloadButton("download_table", "Download")
+        uiOutput("ui1")  # Dynamic UI for gene list
       ),
       conditionalPanel(
         condition = "input.dataset == '2'", 
-        tableOutput("table2"), 
-        downloadButton("download_table2", "Download")
+        uiOutput("ui2")  # Dynamic UI for markers file
       ), 
       conditionalPanel(
         condition = "input.dataset == '3'", 
-        tableOutput("table3"), 
-        plotOutput("dimPlot"), 
-        downloadButton("download_table3", "Download")
+        uiOutput("ui3")  # Dynamic UI for Seurat object
       )
     )
   )
@@ -57,9 +53,10 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   observeEvent(input$annotate, {
-    output$dimPlot <- NULL 
-    output$other <- NULL
-    output$table <- NULL
+    output$ui1 <- NULL
+    output$ui2 <- NULL
+    output$ui3 <- NULL
+  
     
     if (input$dataset == 1) {
       gene_groups <- strsplit(input$gene_list, "\n")[[1]]
@@ -67,6 +64,14 @@ server <- function(input, output, session) {
       names(gene_list) <- paste0("Group", seq_along(gene_list))
       
       res <- gptcelltype(input = gene_list, tissuename = NULL, model = input$model, topgenenumber = 10) 
+      
+      output$ui1 <- renderUI({
+        tagList(
+          tableOutput("table"),
+          downloadButton("download_table", "Download")
+        )
+      })
+      
       output$table <- renderTable({
         res_table <- data.frame(Group = names(res), Genes = sapply(gene_list, paste, collapse = " "), Cell_Type = res)
         res_table
@@ -90,6 +95,14 @@ server <- function(input, output, session) {
       res <- gptcelltype(all.markers, 
                          tissuename = 'human PBMC', 
                          model = input$model)
+      
+      output$ui2 <- renderUI({
+        tagList(
+          tableOutput("table2"),
+          downloadButton("download_table2", "Download")
+        )
+      })
+      
       output$table2 <- renderTable({
         res_table2 <- data.frame(Group = names(res), Cell_Type = res)
         res_table2
@@ -116,6 +129,14 @@ server <- function(input, output, session) {
                          tissuename = 'human PBMC', 
                          model = input$model)
       dataset@meta.data$celltype <- as.factor(res[as.character(Idents(dataset))])
+      
+      output$ui3 <- renderUI({
+        tagList(
+          plotOutput("dimPlot"),
+          tableOutput("table3"),
+          downloadButton("download_table3", "Download")
+        )
+      })
       
       output$dimPlot <- renderPlot({
         DimPlot(dataset, group.by = 'celltype')
